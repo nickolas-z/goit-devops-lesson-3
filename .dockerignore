@@ -1,0 +1,13 @@
+__pycache__
+*.pyc
+*.pyo
+test.jpg
+.git
+.gitignore
+install.log
+*.sh
+README.md
+comparison.txt
+report.md
+task.md
+.venv/

@@ -1,0 +1,41 @@
+# Slim image — multi-stage build for minimal final image size
+
+# Stage 1: builder — install Python dependencies
+# Pin to bookworm (Debian 12) so compiled .so files match the distroless runtime.
+FROM python:3.11-slim-bookworm AS builder
+
+# Minimal build tools needed to compile any C extensions
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install torch/torchvision via CPU-only index (--index-url replaces PyPI,
+# guaranteeing no CUDA wheel is selected even if pip finds a higher version).
+# Install pillow separately from PyPI since it is not on the torch index.
+RUN pip install --user --no-cache-dir pillow==12.1.1 && \
+    pip install --user --no-cache-dir \
+        torch==2.11.0+cpu torchvision==0.26.0+cpu \
+        --index-url https://download.pytorch.org/whl/cpu
+
+# Stage 2: runtime — distroless Python (Debian 12, Python 3.11, NO apt, NO shell)
+# Eliminates package manager, compiler, and all dev tooling from the final image.
+# Pinned by digest so the Python minor version matches the PYTHONPATH below.
+FROM gcr.io/distroless/python3-debian12@sha256:2fdb05402a2cf21cf78fdb3ba4c5db167241e9e498140f5bf689d7efb773731f
+
+LABEL maintainer="lesson3-slim" \
+    description="Slim PyTorch inference image (multi-stage, distroless runtime)"
+
+# Copy only the installed Python packages from the builder stage
+COPY --from=builder /root/.local /root/.local
+
+WORKDIR /app
+
+# Copy model and inference script
+COPY model.pt inference.py imagenet_classes.txt ./
+
+# Point Python to user-installed packages; disable output buffering
+ENV PYTHONPATH=/root/.local/lib/python3.11/site-packages
+ENV PYTHONUNBUFFERED=1
+
+# distroless uses python3 as the interpreter name
+ENTRYPOINT ["python3", "inference.py"]

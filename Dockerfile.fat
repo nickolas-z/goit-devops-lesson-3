@@ -1,0 +1,24 @@
+# Fat image — for learning purposes, intentionally large
+FROM python:3.9
+
+LABEL maintainer="lesson3-fat" \
+      description="Fat PyTorch inference image (educational - not optimized)"
+
+# Install system packages (including unnecessary dev / debug tools)
+RUN apt-get update && apt-get install -y \
+    wget curl build-essential git vim nano \
+    libgl1 libglib2.0-0 libsm6 libxrender1 libxext6 \
+    python3-dev gcc g++ make cmake \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Install Python dependencies (full CUDA wheels, no --no-cache-dir).
+RUN pip install --upgrade pip && \
+    pip install torch==2.8.0 torchvision==0.23.0 pillow==11.3.0
+
+# Copy model and inference script
+COPY model.pt inference.py imagenet_classes.txt ./
+
+# Default entrypoint: pass image path as CMD argument
+ENTRYPOINT ["python", "inference.py"]
